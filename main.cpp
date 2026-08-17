@@ -2,11 +2,11 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <memory>
 #include <algorithm>
 #include <iomanip>
 #include <string>
-#include <stdexcept>
+#include <memory>
+#include <utility>
 
 #include "Booth.h"
 
@@ -14,49 +14,45 @@ using namespace std;
 
 
 // ============================================================
-// Format money
+// Convert string to value after '='
 // Example:
-// 560000   -> 560.000
-// 43680000 -> 43.680.000
+// ID=A724  -> A724
+// Area=78  -> 78
 // ============================================================
 
-string formatMoney(double amount)
+string getValue(const string& data)
 {
-    long long value = static_cast<long long>(amount);
+    int position = data.find('=');
 
-    string number = to_string(value);
+    if (position == string::npos)
+        return "";
 
-    int position = static_cast<int>(number.length()) - 3;
-
-    while (position > 0)
-    {
-        number.insert(position, ".");
-        position -= 3;
-    }
-
-    return number;
+    return data.substr(position + 1);
 }
 
 
 // ============================================================
-// Get value after '='
+// Format money
 // Example:
-// "ID=A724" -> "A724"
-// "Area=78" -> "78"
+// 560000     -> 560.000
+// 43680000   -> 43.680.000
 // ============================================================
 
-string getValue(const string& token)
+string formatMoney(double money)
 {
-    size_t position = token.find('=');
+    long long value = (long long)money;
 
-    if (position == string::npos)
+    string result = to_string(value);
+
+    int position = result.length() - 3;
+
+    while (position > 0)
     {
-        throw invalid_argument(
-            "Invalid token: " + token
-        );
+        result.insert(position, ".");
+        position -= 3;
     }
 
-    return token.substr(position + 1);
+    return result;
 }
 
 
@@ -68,16 +64,17 @@ vector<unique_ptr<Booth>> readBooths(
     const string& filename
 )
 {
+    vector<unique_ptr<Booth>> booths;
+
     ifstream file(filename);
 
     if (!file)
     {
-        throw runtime_error(
-            "Cannot open file: " + filename
-        );
-    }
+        cout << "Khong the mo file: "
+             << filename << endl;
 
-    vector<unique_ptr<Booth>> booths;
+        return booths;
+    }
 
     string line;
 
@@ -89,40 +86,72 @@ vector<unique_ptr<Booth>> readBooths(
         stringstream ss(line);
 
         string type;
-        string idToken;
-        string areaToken;
-        string extraToken;
+        string idData;
+        string areaData;
+        string extraData;
 
-        // Example:
-        // Food ID=A724, Area=78, ColdStorage=3000000
+        // ----------------------------------------------------
+        // Read type
+        // ----------------------------------------------------
 
         getline(ss, type, ' ');
-        getline(ss, idToken, ',');
-        getline(ss, areaToken, ',');
 
-        string id = getValue(idToken);
+        // ----------------------------------------------------
+        // Read ID
+        // ----------------------------------------------------
+
+        getline(ss, idData, ',');
+
+        // ----------------------------------------------------
+        // Read Area
+        // ----------------------------------------------------
+
+        getline(ss, areaData, ',');
+
+        string id = getValue(idData);
 
         double area =
-            stod(getValue(areaToken));
+            stod(getValue(areaData));
+
+        // ----------------------------------------------------
+        // Read additional fee
+        // Food:
+        // ColdStorage=3000000
+        //
+        // Jewelry:
+        // SecurityFee=7000000
+        //
+        // Clothes:
+        // No additional fee
+        // ----------------------------------------------------
 
         double extraFee = 0;
 
-        // Food / Jewelry
-        if (getline(ss, extraToken))
+        if (getline(ss, extraData))
         {
             extraFee =
-                stod(getValue(extraToken));
+                stod(getValue(extraData));
         }
 
-        booths.push_back(
+        // ----------------------------------------------------
+        // Create object using Factory
+        // ----------------------------------------------------
+
+        unique_ptr<Booth> booth =
             BoothFactory::create(
                 type,
                 id,
                 area,
                 extraFee
-            )
-        );
+            );
+
+        if (booth != nullptr)
+        {
+            booths.push_back(move(booth));
+        }
     }
+
+    file.close();
 
     return booths;
 }
@@ -136,14 +165,25 @@ void printReport(
     const vector<unique_ptr<Booth>>& booths
 )
 {
-    cout << "\n";
-    cout << "Bao cao thu tien thue mat bang cho Ben Thanh\n";
-    cout << "Thang: 05/2024\n\n";
+    cout << endl;
+
+    cout << "Bao cao thu tien thue mat bang cho Ben Thanh"
+         << endl;
+
+    cout << "Thang: 05/2024"
+         << endl;
+
+    cout << endl;
+
+
+    // --------------------------------------------------------
+    // Table header
+    // --------------------------------------------------------
 
     cout << left
-         << setw(5)  << "STT"
+         << setw(5) << "STT"
          << " | "
-         << setw(7)  << "Ma sap"
+         << setw(7) << "Ma sap"
          << " | "
          << setw(11) << "Loai"
          << " | "
@@ -156,9 +196,16 @@ void printReport(
          << setw(10) << "Phi khac"
          << " | "
          << setw(14) << "Tong cong"
-         << '\n';
+         << endl;
 
-    cout << string(112, '-') << '\n';
+
+    cout << string(112, '-')
+         << endl;
+
+
+    // --------------------------------------------------------
+    // Print each booth
+    // --------------------------------------------------------
 
     double total = 0;
 
@@ -168,22 +215,24 @@ void printReport(
     {
         string area =
             to_string(
-                static_cast<int>(booth->area())
+                (int)booth->getArea()
             ) + " m2";
 
+
         cout << left
+
              << setw(5)
-             << stt++
+             << stt
 
              << " | "
 
              << setw(7)
-             << booth->id()
+             << booth->getId()
 
              << " | "
 
              << setw(11)
-             << booth->type()
+             << booth->getType()
 
              << " | "
 
@@ -206,7 +255,7 @@ void printReport(
 
              << setw(10)
              << formatMoney(
-                    booth->otherFee()
+                    booth->getOtherFee()
                 )
 
              << " | "
@@ -216,16 +265,25 @@ void printReport(
                     booth->totalRent()
                 )
 
-             << '\n';
+             << endl;
+
 
         total += booth->totalRent();
+
+        stt++;
     }
 
-    cout << '\n';
+
+    // --------------------------------------------------------
+    // Total
+    // --------------------------------------------------------
+
+    cout << endl;
 
     cout << "Tong tien thue mat bang thu trong thang: "
          << formatMoney(total)
-         << " d\n";
+         << " d"
+         << endl;
 }
 
 
@@ -235,35 +293,33 @@ void printReport(
 
 int main()
 {
-    try
-    {
-        // Read data
-        auto booths =
-            readBooths("RentMay24.txt");
+    // Read all booths
+    vector<unique_ptr<Booth>> booths =
+        readBooths("RentMay24.txt");
 
-        // Sort by total rent ascending
-        sort(
-            booths.begin(),
-            booths.end(),
-            [](const unique_ptr<Booth>& a,
-               const unique_ptr<Booth>& b)
-            {
-                return a->totalRent()
-                     < b->totalRent();
-            }
-        );
 
-        // Print report
-        printReport(booths);
-    }
-    catch (const exception& e)
-    {
-        cerr << "Error: "
-             << e.what()
-             << '\n';
+    // --------------------------------------------------------
+    // Sort by total rent in ascending order
+    // --------------------------------------------------------
 
-        return 1;
-    }
+    sort(
+        booths.begin(),
+        booths.end(),
+        [](const unique_ptr<Booth>& a,
+           const unique_ptr<Booth>& b)
+        {
+            return a->totalRent()
+                 < b->totalRent();
+        }
+    );
+
+
+    // --------------------------------------------------------
+    // Print report
+    // --------------------------------------------------------
+
+    printReport(booths);
+
 
     return 0;
 }

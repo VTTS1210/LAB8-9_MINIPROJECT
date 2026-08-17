@@ -5,35 +5,39 @@
 
 using namespace std;
 
+
 // ============================================================
 // Abstract Base Class
 // ============================================================
+
 class Booth
 {
 protected:
     string _id;
     double _area;
 
-    static constexpr double RENT_PER_SQM = 560000;
+    static const double RENT_PER_SQM;
 
 public:
     Booth(const string& id, double area);
-    virtual ~Booth() = default;
+    virtual ~Booth();
 
-    string id() const;
-    double area() const;
+    string getId() const;
+    double getArea() const;
 
     double rentPrice() const;
     double totalRent() const;
 
-    virtual string type() const = 0;
-    virtual double otherFee() const = 0;
+    // Pure virtual functions
+    virtual string getType() const = 0;
+    virtual double getOtherFee() const = 0;
 };
 
 
 // ============================================================
-// Food Booth
+// Food
 // ============================================================
+
 class Food : public Booth
 {
 private:
@@ -46,14 +50,15 @@ public:
         double coldStorage
     );
 
-    string type() const override;
-    double otherFee() const override;
+    string getType() const override;
+    double getOtherFee() const override;
 };
 
 
 // ============================================================
-// Clothes Booth
+// Clothes
 // ============================================================
+
 class Clothes : public Booth
 {
 public:
@@ -62,14 +67,15 @@ public:
         double area
     );
 
-    string type() const override;
-    double otherFee() const override;
+    string getType() const override;
+    double getOtherFee() const override;
 };
 
 
 // ============================================================
-// Jewelry Booth
+// Jewelry
 // ============================================================
+
 class Jewelry : public Booth
 {
 private:
@@ -82,14 +88,15 @@ public:
         double securityFee
     );
 
-    string type() const override;
-    double otherFee() const override;
+    string getType() const override;
+    double getOtherFee() const override;
 };
 
 
 // ============================================================
 // Factory Pattern
 // ============================================================
+
 class BoothFactory
 {
 public:
